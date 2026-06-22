@@ -28,6 +28,8 @@ export default function MeetingRoom() {
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [invalidRoom, setInvalidRoom] = useState(false);
+  const [toast, setToast] = useState("");
 
   const rosterRef = useRef<Set<string>>(new Set());
 
@@ -101,6 +103,7 @@ export default function MeetingRoom() {
 
   useEffect(() => {
     let destroyed = false;
+    let joinTimeout: ReturnType<typeof setTimeout> | null = null;
 
     async function init() {
       try {
@@ -129,6 +132,12 @@ export default function MeetingRoom() {
         } else {
           setStatus("Connecting to host...");
           callPeer(code);
+          joinTimeout = setTimeout(() => {
+            if (remotePeersRef.current.size === 0 || !Array.from(remotePeersRef.current.values()).some(rp => rp.stream)) {
+              setInvalidRoom(true);
+              setStatus("");
+            }
+          }, 10000);
         }
       });
 
@@ -141,6 +150,11 @@ export default function MeetingRoom() {
           let newCode = "";
           for (let i = 0; i < 8; i++) newCode += chars[Math.floor(Math.random() * chars.length)];
           router.replace(`/meeting/${newCode}?host=1`);
+          return;
+        }
+        if (err.type === "peer-unavailable" && !isHost) {
+          setInvalidRoom(true);
+          setStatus("");
           return;
         }
         setStatus(`Connection error: ${err.type}`);
@@ -230,6 +244,7 @@ export default function MeetingRoom() {
 
     return () => {
       destroyed = true;
+      if (joinTimeout) clearTimeout(joinTimeout);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       remotePeersRef.current.forEach((rp) => {
@@ -256,9 +271,15 @@ export default function MeetingRoom() {
     setCamOn((v) => !v);
   }
 
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2500);
+  }
+
   function copyCode() {
-    navigator.clipboard.writeText(code);
+    try { navigator.clipboard.writeText(code).catch(() => {}); } catch {}
     setCopied(true);
+    showToast(`Meeting code "${code}" copied!`);
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -277,6 +298,32 @@ export default function MeetingRoom() {
   if (totalTiles === 2) gridClass = "grid-cols-1 sm:grid-cols-2";
   else if (totalTiles >= 3 && totalTiles <= 4) gridClass = "grid-cols-2";
   else if (totalTiles >= 5) gridClass = "grid-cols-2 sm:grid-cols-3";
+
+  if (invalidRoom) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-screen">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" x2="12" y1="8" y2="12" />
+              <line x1="12" x2="12.01" y1="16" y2="16" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold">Meeting not found</h2>
+          <p className="text-neutral-400 text-sm">
+            The code <span className="font-mono bg-neutral-800 px-2 py-0.5 rounded">{code}</span> doesn&apos;t match any active meeting. Check the code and try again.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-2 py-2.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col h-screen">
@@ -319,6 +366,15 @@ export default function MeetingRoom() {
           <LeaveIcon />
         </ControlButton>
       </div>
+
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-neutral-800 border border-neutral-700 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg animate-fade-in flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

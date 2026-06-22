@@ -12,9 +12,12 @@ function generateCode(): string {
   return code;
 }
 
+const CODE_REGEX = /^[a-z0-9]{4,16}$/;
+
 export default function Home() {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
+  const [error, setError] = useState("");
 
   function handleCreate() {
     const code = generateCode();
@@ -24,6 +27,11 @@ export default function Home() {
   function handleJoin() {
     const code = joinCode.trim().toLowerCase();
     if (!code) return;
+    if (!CODE_REGEX.test(code)) {
+      setError("Code must be 4-16 lowercase letters/numbers");
+      return;
+    }
+    setError("");
     router.push(`/meeting/${code}`);
   }
 
@@ -49,22 +57,25 @@ export default function Home() {
             <div className="flex-1 h-px bg-neutral-700" />
           </div>
 
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Enter meeting code"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-              className="flex-1 py-3 px-4 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 transition-colors"
-            />
-            <button
-              onClick={handleJoin}
-              disabled={!joinCode.trim()}
-              className="py-3 px-6 rounded-xl bg-neutral-700 hover:bg-neutral-600 text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Join
-            </button>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter meeting code"
+                value={joinCode}
+                onChange={(e) => { setJoinCode(e.target.value); setError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                className={`flex-1 py-3 px-4 rounded-xl bg-neutral-800 border text-white placeholder-neutral-500 focus:outline-none transition-colors ${error ? "border-red-500" : "border-neutral-700 focus:border-blue-500"}`}
+              />
+              <button
+                onClick={handleJoin}
+                disabled={!joinCode.trim()}
+                className="py-3 px-6 rounded-xl bg-neutral-700 hover:bg-neutral-600 text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Join
+              </button>
+            </div>
+            {error && <p className="text-red-400 text-sm px-1">{error}</p>}
           </div>
         </div>
       </div>
