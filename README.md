@@ -2,6 +2,11 @@
 
 A Google Meet-style video calling app that runs entirely in the browser. No backend, no accounts — just instant peer-to-peer video meetings powered by [PeerJS](https://peerjs.com/).
 
+<p align="center">
+  <img src="preview-1.png" alt="Home Screen" width="48%" />
+  <img src="preview-2.png" alt="Meeting Room" width="48%" />
+</p>
+
 ## How It Works
 
 - **Create a meeting** — generates a unique 8-character room code and makes you the host.
