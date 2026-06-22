@@ -11,6 +11,8 @@ interface RemotePeer {
   dataConn: DataConnection | null;
 }
 
+type RoomState = "verifying" | "joining" | "connected" | "invalid" | "error";
+
 export default function MeetingRoom() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -24,11 +26,12 @@ export default function MeetingRoom() {
   const remotePeersRef = useRef<Map<string, RemotePeer>>(new Map());
 
   const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeer>>(new Map());
-  const [status, setStatus] = useState<string>("Initializing...");
+  const [roomState, setRoomState] = useState<RoomState>(isHost ? "joining" : "verifying");
+  const [status, setStatus] = useState<string>(isHost ? "Initializing..." : "Verifying meeting code...");
+  const [errorMsg, setErrorMsg] = useState("");
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [invalidRoom, setInvalidRoom] = useState(false);
   const [toast, setToast] = useState("");
 
   const rosterRef = useRef<Set<string>>(new Set());
@@ -101,9 +104,68 @@ export default function MeetingRoom() {
     });
   }, [callPeer]);
 
+  // Step 1 for joiners: verify host exists before requesting camera
   useEffect(() => {
+    if (isHost || roomState !== "verifying") return;
+
     let destroyed = false;
-    let joinTimeout: ReturnType<typeof setTimeout> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const probePeerId = `probe-${Math.random().toString(36).slice(2, 10)}`;
+    const probe = new Peer(probePeerId);
+
+    probe.on("open", () => {
+      if (destroyed) return;
+      const conn = probe.connect(code);
+
+      timeout = setTimeout(() => {
+        if (destroyed) return;
+        probe.destroy();
+        setRoomState("invalid");
+      }, 8000);
+
+      conn.on("open", () => {
+        if (destroyed) return;
+        if (timeout) clearTimeout(timeout);
+        conn.close();
+        probe.destroy();
+        setRoomState("joining");
+        setStatus("Initializing...");
+      });
+
+      conn.on("error", () => {
+        if (destroyed) return;
+        if (timeout) clearTimeout(timeout);
+        probe.destroy();
+        setRoomState("invalid");
+      });
+    });
+
+    probe.on("error", (err) => {
+      if (destroyed) return;
+      if (timeout) clearTimeout(timeout);
+      if (err.type === "peer-unavailable") {
+        probe.destroy();
+        setRoomState("invalid");
+      } else {
+        probe.destroy();
+        setErrorMsg(`Connection error: ${err.type}`);
+        setRoomState("error");
+      }
+    });
+
+    return () => {
+      destroyed = true;
+      if (timeout) clearTimeout(timeout);
+      probe.destroy();
+    };
+  }, [code, isHost, roomState]);
+
+  // Step 2: once verified (or if host), init camera + full PeerJS mesh
+  useEffect(() => {
+    if (roomState !== "joining") return;
+
+    let destroyed = false;
 
     async function init() {
       try {
@@ -114,7 +176,8 @@ export default function MeetingRoom() {
           localVideoRef.current.srcObject = stream;
         }
       } catch {
-        setStatus("Camera/mic access denied");
+        setErrorMsg("Camera/mic access denied. Please allow access and try again.");
+        setRoomState("error");
         return;
       }
 
@@ -126,18 +189,13 @@ export default function MeetingRoom() {
 
       peer.on("open", (id) => {
         if (destroyed) return;
+        setRoomState("connected");
         if (isHost) {
           rosterRef.current.add(id);
           setStatus("Waiting for others to join...");
         } else {
           setStatus("Connecting to host...");
           callPeer(code);
-          joinTimeout = setTimeout(() => {
-            if (remotePeersRef.current.size === 0 || !Array.from(remotePeersRef.current.values()).some(rp => rp.stream)) {
-              setInvalidRoom(true);
-              setStatus("");
-            }
-          }, 10000);
         }
       });
 
@@ -153,8 +211,7 @@ export default function MeetingRoom() {
           return;
         }
         if (err.type === "peer-unavailable" && !isHost) {
-          setInvalidRoom(true);
-          setStatus("");
+          setRoomState("invalid");
           return;
         }
         setStatus(`Connection error: ${err.type}`);
@@ -244,7 +301,6 @@ export default function MeetingRoom() {
 
     return () => {
       destroyed = true;
-      if (joinTimeout) clearTimeout(joinTimeout);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       remotePeersRef.current.forEach((rp) => {
@@ -255,7 +311,7 @@ export default function MeetingRoom() {
       peerRef.current?.destroy();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, isHost]);
+  }, [code, isHost, roomState]);
 
   function toggleMic() {
     const stream = localStreamRef.current;
@@ -293,13 +349,21 @@ export default function MeetingRoom() {
     router.push("/");
   }
 
-  const totalTiles = 1 + remotePeers.size;
-  let gridClass = "grid-cols-1";
-  if (totalTiles === 2) gridClass = "grid-cols-1 sm:grid-cols-2";
-  else if (totalTiles >= 3 && totalTiles <= 4) gridClass = "grid-cols-2";
-  else if (totalTiles >= 5) gridClass = "grid-cols-2 sm:grid-cols-3";
+  // --- Screens ---
 
-  if (invalidRoom) {
+  if (roomState === "verifying") {
+    return (
+      <div className="flex-1 flex items-center justify-center h-screen">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 mx-auto border-4 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-neutral-400">Verifying meeting code...</p>
+          <p className="text-neutral-600 text-sm font-mono">{code}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (roomState === "invalid") {
     return (
       <div className="flex-1 flex items-center justify-center h-screen">
         <div className="text-center space-y-4 max-w-sm">
@@ -324,6 +388,36 @@ export default function MeetingRoom() {
       </div>
     );
   }
+
+  if (roomState === "error") {
+    return (
+      <div className="flex-1 flex items-center justify-center h-screen">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-16 h-16 mx-auto rounded-full bg-yellow-500/10 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <line x1="12" x2="12" y1="9" y2="13" />
+              <line x1="12" x2="12.01" y1="17" y2="17" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold">Something went wrong</h2>
+          <p className="text-neutral-400 text-sm">{errorMsg}</p>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-2 py-2.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const totalTiles = 1 + remotePeers.size;
+  let gridClass = "grid-cols-1";
+  if (totalTiles === 2) gridClass = "grid-cols-1 sm:grid-cols-2";
+  else if (totalTiles >= 3 && totalTiles <= 4) gridClass = "grid-cols-2";
+  else if (totalTiles >= 5) gridClass = "grid-cols-2 sm:grid-cols-3";
 
   return (
     <div className="flex-1 flex flex-col h-screen">
