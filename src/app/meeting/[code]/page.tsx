@@ -305,7 +305,7 @@ export default function MeetingRoom() {
   function copyCode() {
     try { navigator.clipboard.writeText(code).catch(() => {}); } catch {}
     setCopied(true);
-    showToast(`Meeting code "${code}" copied!`);
+    showToast(`Code "${code}" copied to clipboard`);
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -323,119 +323,148 @@ export default function MeetingRoom() {
 
   if (roomState === "invalid") {
     return (
-      <div className="flex-1 flex items-center justify-center h-screen">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <CenteredScreen>
+        <div className="relative w-20 h-20 mx-auto mb-2">
+          <div className="absolute inset-0 rounded-full bg-red-500/10 animate-pulse-ring" />
+          <div className="relative w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
-              <line x1="12" x2="12" y1="8" y2="12" />
-              <line x1="12" x2="12.01" y1="16" y2="16" />
+              <line x1="15" x2="9" y1="9" y2="15" />
+              <line x1="9" x2="15" y1="9" y2="15" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold">Meeting not found</h2>
-          <p className="text-neutral-400 text-sm">
-            The code <span className="font-mono bg-neutral-800 px-2 py-0.5 rounded">{code}</span> doesn&apos;t match any active meeting. Check the code and try again.
-          </p>
-          <button
-            onClick={() => router.push("/")}
-            className="mt-2 py-2.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer"
-          >
-            Go Back
-          </button>
         </div>
-      </div>
+        <h2 className="text-2xl font-semibold">Meeting not found</h2>
+        <p className="text-neutral-500 text-sm max-w-xs mx-auto">
+          No active meeting with code <span className="font-mono text-neutral-300 bg-white/[0.04] px-2 py-0.5 rounded-lg">{code}</span>
+        </p>
+        <button
+          onClick={() => router.push("/")}
+          className="mt-2 py-2.5 px-8 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.06] text-white font-medium transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+        >
+          Back to Home
+        </button>
+      </CenteredScreen>
     );
   }
 
   if (roomState === "error") {
     return (
-      <div className="flex-1 flex items-center justify-center h-screen">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 mx-auto rounded-full bg-yellow-500/10 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-              <line x1="12" x2="12" y1="9" y2="13" />
-              <line x1="12" x2="12.01" y1="17" y2="17" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold">Something went wrong</h2>
-          <p className="text-neutral-400 text-sm">{errorMsg}</p>
-          <button
-            onClick={() => router.push("/")}
-            className="mt-2 py-2.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer"
-          >
-            Go Back
-          </button>
+      <CenteredScreen>
+        <div className="w-20 h-20 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center mb-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+            <line x1="12" x2="12" y1="9" y2="13" />
+            <line x1="12" x2="12.01" y1="17" y2="17" />
+          </svg>
         </div>
-      </div>
+        <h2 className="text-2xl font-semibold">Something went wrong</h2>
+        <p className="text-neutral-500 text-sm max-w-xs mx-auto">{errorMsg}</p>
+        <button
+          onClick={() => router.push("/")}
+          className="mt-2 py-2.5 px-8 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.06] text-white font-medium transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+        >
+          Back to Home
+        </button>
+      </CenteredScreen>
     );
   }
 
   if (roomState === "connecting" && !isHost) {
     return (
-      <div className="flex-1 flex items-center justify-center h-screen">
-        <div className="text-center space-y-4">
-          <div className="w-10 h-10 mx-auto border-4 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
-          <p className="text-neutral-400">{status}</p>
-          <p className="text-neutral-600 text-sm font-mono">{code}</p>
+      <CenteredScreen>
+        <div className="relative w-16 h-16 mx-auto mb-2">
+          <div className="absolute inset-0 rounded-full border-[3px] border-neutral-800" />
+          <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-blue-500 animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
+              <rect x="2" y="6" width="14" height="12" rx="2" />
+            </svg>
+          </div>
         </div>
-      </div>
+        <p className="text-neutral-400 font-medium">{status}</p>
+        <p className="text-neutral-600 text-sm font-mono tracking-widest">{code}</p>
+      </CenteredScreen>
     );
   }
 
   const totalTiles = 1 + remotePeers.size;
-  let gridClass = "grid-cols-1";
+  let gridClass = "grid-cols-1 max-w-2xl mx-auto";
   if (totalTiles === 2) gridClass = "grid-cols-1 sm:grid-cols-2";
   else if (totalTiles >= 3 && totalTiles <= 4) gridClass = "grid-cols-2";
-  else if (totalTiles >= 5) gridClass = "grid-cols-2 sm:grid-cols-3";
+  else if (totalTiles >= 5) gridClass = "grid-cols-2 lg:grid-cols-3";
 
   return (
-    <div className="flex-1 flex flex-col h-screen">
+    <div className="flex-1 flex flex-col h-screen bg-[#09090b]">
+      {/* Status bar */}
       {status && (
-        <div className="text-center py-2 text-sm text-neutral-400 bg-neutral-900">
-          {status}
+        <div className="text-center py-2 text-xs text-neutral-500 tracking-wide">
+          <span className="inline-flex items-center gap-2">
+            {status === "Waiting for others to join..." && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            )}
+            {status}
+          </span>
         </div>
       )}
 
-      <div className={`flex-1 grid ${gridClass} gap-3 p-3 auto-rows-fr`}>
-        <div className="relative bg-neutral-800 rounded-2xl overflow-hidden">
+      {/* Video grid */}
+      <div className={`flex-1 grid ${gridClass} gap-2.5 p-2.5 auto-rows-fr`}>
+        <VideoTile isLocal>
           <video
             ref={localVideoRef}
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover scale-x-[-1]"
           />
-          <span className="absolute bottom-2 left-3 text-xs bg-black/60 px-2 py-1 rounded-lg">
-            You {isHost ? "(Host)" : ""}
-          </span>
-        </div>
+          <TileLabel text={isHost ? "You (Host)" : "You"} />
+        </VideoTile>
 
         {Array.from(remotePeers.values()).map((rp) => (
-          <RemoteVideo key={rp.peerId} peer={rp} />
+          <RemoteVideoTile key={rp.peerId} peer={rp} />
         ))}
       </div>
 
-      <div className="flex items-center justify-center gap-3 p-4 bg-neutral-900/80 backdrop-blur">
-        <ControlButton onClick={toggleMic} active={micOn} label={micOn ? "Mic On" : "Mic Off"}>
-          {micOn ? <MicIcon /> : <MicOffIcon />}
-        </ControlButton>
-        <ControlButton onClick={toggleCam} active={camOn} label={camOn ? "Cam On" : "Cam Off"}>
-          {camOn ? <CamIcon /> : <CamOffIcon />}
-        </ControlButton>
-        <ControlButton onClick={copyCode} active={true} label={copied ? "Copied!" : "Copy Code"}>
-          <CopyIcon />
-        </ControlButton>
-        <ControlButton onClick={leave} active={false} danger label="Leave">
-          <LeaveIcon />
-        </ControlButton>
+      {/* Controls bar */}
+      <div className="glass-strong flex items-center justify-center gap-2 sm:gap-3 px-4 py-3">
+        <ControlButton
+          onClick={toggleMic}
+          active={micOn}
+          label={micOn ? "Mute" : "Unmute"}
+          icon={micOn ? <MicIcon /> : <MicOffIcon />}
+        />
+        <ControlButton
+          onClick={toggleCam}
+          active={camOn}
+          label={camOn ? "Stop Video" : "Start Video"}
+          icon={camOn ? <CamIcon /> : <CamOffIcon />}
+        />
+        <ControlButton
+          onClick={copyCode}
+          active={true}
+          label={copied ? "Copied!" : code}
+          icon={<CopyIcon />}
+        />
+        <div className="w-px h-8 bg-white/[0.06] mx-1" />
+        <ControlButton
+          onClick={leave}
+          active={false}
+          danger
+          label="Leave"
+          icon={<LeaveIcon />}
+        />
       </div>
 
+      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-neutral-800 border border-neutral-700 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg animate-fade-in flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 glass-strong text-white text-sm px-5 py-3 rounded-2xl shadow-2xl animate-fade-in-up flex items-center gap-2.5">
+          <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </div>
           {toast}
         </div>
       )}
@@ -443,7 +472,33 @@ export default function MeetingRoom() {
   );
 }
 
-function RemoteVideo({ peer }: { peer: RemotePeer }) {
+function CenteredScreen({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex-1 flex items-center justify-center h-screen">
+      <div className="text-center space-y-3 animate-float" style={{ animationDuration: "4s" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function VideoTile({ children, isLocal }: { children: React.ReactNode; isLocal?: boolean }) {
+  return (
+    <div className={`relative rounded-2xl overflow-hidden bg-neutral-900 ring-1 ring-white/[0.06] ${isLocal ? "shadow-lg shadow-blue-500/5" : ""}`}>
+      {children}
+    </div>
+  );
+}
+
+function TileLabel({ text }: { text: string }) {
+  return (
+    <span className="absolute bottom-2.5 left-3 text-xs font-medium bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full text-white/80">
+      {text}
+    </span>
+  );
+}
+
+function RemoteVideoTile({ peer }: { peer: RemotePeer }) {
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -453,18 +508,22 @@ function RemoteVideo({ peer }: { peer: RemotePeer }) {
   }, [peer.stream]);
 
   return (
-    <div className="relative bg-neutral-800 rounded-2xl overflow-hidden">
+    <VideoTile>
       {peer.stream ? (
         <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-neutral-500">
-          Connecting...
+        <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#525252" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <span className="text-neutral-600 text-xs">Connecting...</span>
         </div>
       )}
-      <span className="absolute bottom-2 left-3 text-xs bg-black/60 px-2 py-1 rounded-lg">
-        {peer.peerId.slice(0, 12)}
-      </span>
-    </div>
+      <TileLabel text={peer.peerId.length > 10 ? `${peer.peerId.slice(0, 8)}...` : peer.peerId} />
+    </VideoTile>
   );
 }
 
@@ -473,34 +532,41 @@ function ControlButton({
   active,
   danger,
   label,
-  children,
+  icon,
 }: {
   onClick: () => void;
   active: boolean;
   danger?: boolean;
   label: string;
-  children: React.ReactNode;
+  icon: React.ReactNode;
 }) {
-  const bg = danger
-    ? "bg-red-600 hover:bg-red-500"
-    : active
-      ? "bg-neutral-700 hover:bg-neutral-600"
-      : "bg-neutral-700/60 hover:bg-neutral-600";
-
   return (
     <button
       onClick={onClick}
+      className={`group flex flex-col items-center gap-1 cursor-pointer`}
       title={label}
-      className={`${bg} w-12 h-12 rounded-full flex items-center justify-center transition-colors cursor-pointer`}
     >
-      {children}
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${
+        danger
+          ? "bg-red-500/15 text-red-400 hover:bg-red-500 hover:text-white hover:scale-105"
+          : active
+            ? "bg-white/[0.08] text-white hover:bg-white/[0.14] hover:scale-105"
+            : "bg-white/[0.04] text-neutral-500 hover:bg-white/[0.08] hover:text-neutral-300 hover:scale-105"
+      } active:scale-95`}>
+        {icon}
+      </div>
+      <span className={`text-[10px] font-medium tracking-wide transition-colors ${
+        danger ? "text-red-400/70" : "text-neutral-600"
+      }`}>
+        {label}
+      </span>
     </button>
   );
 }
 
 function MicIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
       <line x1="12" x2="12" y1="19" y2="22" />
@@ -510,7 +576,7 @@ function MicIcon() {
 
 function MicOffIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="2" x2="22" y1="2" y2="22" />
       <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2" />
       <path d="M5 10v2a7 7 0 0 0 12 5.29" />
@@ -523,7 +589,7 @@ function MicOffIcon() {
 
 function CamIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
       <rect x="2" y="6" width="14" height="12" rx="2" />
     </svg>
@@ -532,7 +598,7 @@ function CamIcon() {
 
 function CamOffIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="2" x2="22" y1="2" y2="22" />
       <path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196" />
       <path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2" />
@@ -542,7 +608,7 @@ function CamOffIcon() {
 
 function CopyIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
       <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
     </svg>
@@ -551,9 +617,10 @@ function CopyIcon() {
 
 function LeaveIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64" />
-      <line x1="12" x2="12" y1="2" y2="12" />
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 2.59 3.4Z" />
+      <line x1="22" x2="16" y1="2" y2="8" />
+      <line x1="16" x2="22" y1="2" y2="8" />
     </svg>
   );
 }
