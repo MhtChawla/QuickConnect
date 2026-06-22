@@ -11,7 +11,7 @@ interface RemotePeer {
   dataConn: DataConnection | null;
 }
 
-type RoomState = "verifying" | "joining" | "connected" | "invalid" | "error";
+type RoomState = "connecting" | "connected" | "invalid" | "error";
 
 export default function MeetingRoom() {
   const params = useParams();
@@ -24,10 +24,12 @@ export default function MeetingRoom() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remotePeersRef = useRef<Map<string, RemotePeer>>(new Map());
+  const hostRespondedRef = useRef(false);
+  const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeer>>(new Map());
-  const [roomState, setRoomState] = useState<RoomState>(isHost ? "joining" : "verifying");
-  const [status, setStatus] = useState<string>(isHost ? "Initializing..." : "Verifying meeting code...");
+  const [roomState, setRoomState] = useState<RoomState>("connecting");
+  const [status, setStatus] = useState("Initializing...");
   const [errorMsg, setErrorMsg] = useState("");
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
@@ -38,6 +40,16 @@ export default function MeetingRoom() {
 
   const syncState = useCallback(() => {
     setRemotePeers(new Map(remotePeersRef.current));
+  }, []);
+
+  const markHostResponded = useCallback(() => {
+    if (hostRespondedRef.current) return;
+    hostRespondedRef.current = true;
+    if (joinTimeoutRef.current) {
+      clearTimeout(joinTimeoutRef.current);
+      joinTimeoutRef.current = null;
+    }
+    setRoomState("connected");
   }, []);
 
   const broadcastRoster = useCallback(() => {
@@ -62,6 +74,7 @@ export default function MeetingRoom() {
     entry.mediaConn = mediaConn;
     mediaConn.on("stream", (remoteStream) => {
       entry.stream = remoteStream;
+      markHostResponded();
       syncState();
     });
     mediaConn.on("close", () => {
@@ -79,6 +92,9 @@ export default function MeetingRoom() {
 
     const dataConn = peer.connect(remotePeerId);
     entry.dataConn = dataConn;
+    dataConn.on("open", () => {
+      markHostResponded();
+    });
     dataConn.on("data", (data: unknown) => {
       const msg = data as { type: string; peers?: string[] };
       if (msg.type === "roster" && msg.peers) {
@@ -92,7 +108,7 @@ export default function MeetingRoom() {
       broadcastRoster();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncState, broadcastRoster]);
+  }, [syncState, broadcastRoster, markHostResponded]);
 
   const handleRoster = useCallback((peers: string[]) => {
     const myId = peerRef.current?.id;
@@ -104,67 +120,7 @@ export default function MeetingRoom() {
     });
   }, [callPeer]);
 
-  // Step 1 for joiners: verify host exists before requesting camera
   useEffect(() => {
-    if (isHost || roomState !== "verifying") return;
-
-    let destroyed = false;
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    const probePeerId = `probe-${Math.random().toString(36).slice(2, 10)}`;
-    const probe = new Peer(probePeerId);
-
-    probe.on("open", () => {
-      if (destroyed) return;
-      const conn = probe.connect(code);
-
-      timeout = setTimeout(() => {
-        if (destroyed) return;
-        probe.destroy();
-        setRoomState("invalid");
-      }, 8000);
-
-      conn.on("open", () => {
-        if (destroyed) return;
-        if (timeout) clearTimeout(timeout);
-        conn.close();
-        probe.destroy();
-        setRoomState("joining");
-        setStatus("Initializing...");
-      });
-
-      conn.on("error", () => {
-        if (destroyed) return;
-        if (timeout) clearTimeout(timeout);
-        probe.destroy();
-        setRoomState("invalid");
-      });
-    });
-
-    probe.on("error", (err) => {
-      if (destroyed) return;
-      if (timeout) clearTimeout(timeout);
-      if (err.type === "peer-unavailable") {
-        probe.destroy();
-        setRoomState("invalid");
-      } else {
-        probe.destroy();
-        setErrorMsg(`Connection error: ${err.type}`);
-        setRoomState("error");
-      }
-    });
-
-    return () => {
-      destroyed = true;
-      if (timeout) clearTimeout(timeout);
-      probe.destroy();
-    };
-  }, [code, isHost, roomState]);
-
-  // Step 2: once verified (or if host), init camera + full PeerJS mesh
-  useEffect(() => {
-    if (roomState !== "joining") return;
-
     let destroyed = false;
 
     async function init() {
@@ -189,13 +145,18 @@ export default function MeetingRoom() {
 
       peer.on("open", (id) => {
         if (destroyed) return;
-        setRoomState("connected");
         if (isHost) {
           rosterRef.current.add(id);
+          setRoomState("connected");
           setStatus("Waiting for others to join...");
         } else {
-          setStatus("Connecting to host...");
+          setStatus("Connecting to meeting...");
           callPeer(code);
+          joinTimeoutRef.current = setTimeout(() => {
+            if (!hostRespondedRef.current) {
+              setRoomState("invalid");
+            }
+          }, 8000);
         }
       });
 
@@ -211,7 +172,9 @@ export default function MeetingRoom() {
           return;
         }
         if (err.type === "peer-unavailable" && !isHost) {
-          setRoomState("invalid");
+          if (!hostRespondedRef.current) {
+            setRoomState("invalid");
+          }
           return;
         }
         setStatus(`Connection error: ${err.type}`);
@@ -301,6 +264,7 @@ export default function MeetingRoom() {
 
     return () => {
       destroyed = true;
+      if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       remotePeersRef.current.forEach((rp) => {
@@ -311,7 +275,13 @@ export default function MeetingRoom() {
       peerRef.current?.destroy();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, isHost, roomState]);
+  }, [code, isHost]);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [roomState]);
 
   function toggleMic() {
     const stream = localStreamRef.current;
@@ -350,18 +320,6 @@ export default function MeetingRoom() {
   }
 
   // --- Screens ---
-
-  if (roomState === "verifying") {
-    return (
-      <div className="flex-1 flex items-center justify-center h-screen">
-        <div className="text-center space-y-4">
-          <div className="w-10 h-10 mx-auto border-4 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
-          <p className="text-neutral-400">Verifying meeting code...</p>
-          <p className="text-neutral-600 text-sm font-mono">{code}</p>
-        </div>
-      </div>
-    );
-  }
 
   if (roomState === "invalid") {
     return (
@@ -408,6 +366,18 @@ export default function MeetingRoom() {
           >
             Go Back
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (roomState === "connecting" && !isHost) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-screen">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 mx-auto border-4 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-neutral-400">{status}</p>
+          <p className="text-neutral-600 text-sm font-mono">{code}</p>
         </div>
       </div>
     );
